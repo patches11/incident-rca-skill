@@ -35,12 +35,13 @@ class Budget:
             )
         self.used += 1
 
-    def check_range(self, start: datetime, end: datetime, now: datetime) -> None:
+    def check_range(self, start: datetime, end: datetime, now: datetime, max_range_s: int | None = None) -> None:
+        cap = max_range_s or self.max_range_s
         if end <= start:
             raise BudgetExceeded("end must be after start")
-        if (end - start).total_seconds() > self.max_range_s:
+        if (end - start).total_seconds() > cap:
             raise BudgetExceeded(
-                f"time range {(end - start)} exceeds the {self.max_range_s // 3600}h cap; "
+                f"time range {(end - start)} exceeds the {cap // 3600}h cap for this tool; "
                 "split the query or narrow the window"
             )
         if (now - start).total_seconds() > self.max_lookback_s:

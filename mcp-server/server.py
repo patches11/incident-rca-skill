@@ -27,7 +27,7 @@ from mcp.server.mcpserver import MCPServer  # noqa: E402
 from mcp_types import ToolAnnotations  # noqa: E402
 
 from pipeline import Investigation, make_adapter  # noqa: E402
-from verify import format_verdicts, load_audit  # noqa: E402
+from verify import extract_summary, format_verdicts, load_audit  # noqa: E402
 from verify import verify_claims as check_claims  # noqa: E402
 
 AUDIT = Path(os.environ.get("RCA_AUDIT_LOG", ".rca/audit.jsonl"))
@@ -88,8 +88,8 @@ def get_traces(service: str, start: str, end: str, filter: str = "", limit: int 
 def recent_changes(start: str, end: str, service: str | None = None) -> str:
     """Deploys, config/env changes, feature flags and infra changes in the window, oldest
     first, with commit SHAs, authors and diffs where available. Omit `service` for all
-    services. Costs 1 budget unit. 
-    Times: ISO-8601 UTC ('2026-10-14T09:30:00Z') or relative to now ('now', 'now-90m', 'now-2h'). Max 6h per query."""
+    services. Costs 1 budget unit.
+    Times: ISO-8601 UTC ('2026-10-14T09:30:00Z') or relative to now ('now', 'now-90m', 'now-2d'). Up to 7 days per query."""
     return _out(inv.run("recent_changes", {"start": start, "end": end, "service": service}))
 
 
@@ -117,6 +117,25 @@ def verify_claims(claims_yaml: str) -> str:
     claims = data.get("claims", []) if isinstance(data, dict) else data
     if not isinstance(claims, list):
         return "could not parse claims: expected a YAML list of claims or a mapping with `claims:`"
+    verdicts = check_claims(claims, load_audit(AUDIT), lambda tool, a: inv.run(tool, a, record=False))
+    return format_verdicts(verdicts)
+
+
+@server.tool(annotations=RO)
+def verify_report() -> str:
+    """Verify the claims in the written report (.rca/incident-report.md, next to the audit
+    log) - the final artifact, not a draft. Run this after writing the report and after
+    every edit to it; the report is done only when every claim PASSes. Free (no budget)."""
+    report = AUDIT.parent / "incident-report.md"
+    if not report.exists():
+        return f"no report at {report}; write it first"
+    try:
+        summary = extract_summary(report.read_text())
+    except ValueError as e:
+        return str(e)
+    claims = summary.get("claims") or []
+    if not claims and summary.get("verdict") == "root_cause":
+        return "FAIL: a root_cause verdict with no claims"
     verdicts = check_claims(claims, load_audit(AUDIT), lambda tool, a: inv.run(tool, a, record=False))
     return format_verdicts(verdicts)
 

@@ -1,0 +1,30 @@
+[
+  {
+    "ts": "2026-10-16T02:37:00Z",
+    "type": "deploy",
+    "service": "notification-worker",
+    "id": "nw-2214",
+    "author": "ana.lopez",
+    "summary": "Update order-confirmation email copy",
+    "commit": "3e1a9c0"
+  },
+  {
+    "ts": "2026-10-16T04:12:00Z",
+    "type": "config",
+    "service": "inventory-svc",
+    "id": "cfg-8812",
+    "author": "sam.kim",
+    "summary": "Raise LOG_SAMPLING_RATE 0.01 -> 0.02 for reserve endpoint",
+    "diff": "-LOG_SAMPLING_RATE=0.01\n+LOG_SAMPLING_RATE=0.02"
+  },
+  {
+    "ts": "2026-10-16T09:50:00Z",
+    "type": "deploy",
+    "service": "notification-worker",
+    "id": "nw-2231",
+    "author": "ana.lopez",
+    "summary": "Retry SMTP 421 with exponential backoff (GROW-388)",
+    "commit": "8d21b4e",
+    "diff": "-    raise\n+    raise Retry(countdown=min(300, 2 ** attempt * 5))"
+  }
+]

@@ -5,3 +5,4 @@ __pycache__/
 .rca/
 eval/runs/
 sandbox/data/
+sandbox/.venv/

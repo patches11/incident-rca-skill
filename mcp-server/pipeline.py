@@ -91,10 +91,10 @@ class Investigation:
         return out
 
     # -- helpers --------------------------------------------------------------
-    def _window(self, start: str, end: str) -> tuple[datetime, datetime]:
+    def _window(self, start: str, end: str, max_range_s: int | None = None) -> tuple[datetime, datetime]:
         now = self.adapter.now()
         s, e = parse_time(start, now), parse_time(end, now)
-        self.budget.check_range(s, e, now)
+        self.budget.check_range(s, e, now, max_range_s)
         return s, e
 
     # -- tools ----------------------------------------------------------------
@@ -173,7 +173,8 @@ class Investigation:
         }
 
     def _recent_changes(self, start: str, end: str, service: str | None = None) -> dict:
-        s, e = self._window(start, end)
+        # Change records are small and cheap; allow the full 7-day lookback in one query.
+        s, e = self._window(start, end, max_range_s=self.budget.max_lookback_s)
         changes = sorted(self.adapter.recent_changes(s, e, service), key=lambda c: c["ts"])
         return {"start": iso(s), "end": iso(e), "service": service, "count": len(changes), "changes": changes}
 

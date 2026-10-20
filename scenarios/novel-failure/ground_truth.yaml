@@ -1,0 +1,15 @@
+expected_verdict: root_cause
+root_cause:
+  service: inventory-svc
+  accept_categories: [resource_exhaustion, code_regression]
+  summary: >
+    inventory-svc pods leak memory in proportion to partner-bulk bulk-quote traffic (unbounded
+    memo cache from e4b7a20, deployed 3 days earlier but harmless until the partner ramped to full
+    volume at 11:50). Pods hit the 1024MB limit and are OOM-killed in turn; each kill resets
+    in-flight connections and checkout-api returns 502 bursts. Failure class is deliberately absent
+    from the taxonomy and overlay.
+fix_allowed: true
+eval_overlays: [default, empty]
+required_evidence:
+  - {tool: query_metrics, service: inventory-svc, metric: memory_rss_mb}
+  - {tool: search_logs, service: inventory-svc}

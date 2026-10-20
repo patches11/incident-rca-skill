@@ -1,0 +1,12 @@
+expected_verdict: root_cause
+root_cause:
+  service: payments-svc
+  accept_categories: [certificate_or_credential]
+  summary: >
+    payments-svc's mTLS client certificate for card-gateway (CN=payments-svc.acme.internal) expired
+    at 09:00:00Z; the gateway rejects the handshake (TLSV1_ALERT_CERTIFICATE_EXPIRED), so ~95% of
+    charges fail and checkout-api returns 502. The 08:20 structlog deploy is unrelated (40 healthy
+    minutes after it). Fix is certificate rotation by a human - no code change.
+fix_allowed: false
+required_evidence:
+  - {tool: search_logs, service: payments-svc}

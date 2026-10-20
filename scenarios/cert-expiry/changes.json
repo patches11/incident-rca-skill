@@ -1,0 +1,31 @@
+[
+  {
+    "ts": "2026-10-18T01:49:00Z",
+    "type": "deploy",
+    "service": "notification-worker",
+    "id": "nw-2214",
+    "author": "ana.lopez",
+    "summary": "Update order-confirmation email copy",
+    "commit": "3e1a9c0"
+  },
+  {
+    "ts": "2026-10-18T03:24:00Z",
+    "type": "config",
+    "service": "inventory-svc",
+    "id": "cfg-8812",
+    "author": "sam.kim",
+    "summary": "Raise LOG_SAMPLING_RATE 0.01 -> 0.02 for reserve endpoint",
+    "diff": "-LOG_SAMPLING_RATE=0.01\n+LOG_SAMPLING_RATE=0.02"
+  },
+  {
+    "ts": "2026-10-18T08:20:00Z",
+    "type": "deploy",
+    "service": "payments-svc",
+    "id": "pay-5562",
+    "author": "dev.patel",
+    "summary": "Bump structlog 24.1 -> 24.4; tidy log field names",
+    "commit": "5be81aa",
+    "version": "2026.10.18-1",
+    "diff": "-structlog==24.1.0\n+structlog==24.4.0\n-    log.bind(req=req_id)\n+    log.bind(request_id=req_id)"
+  }
+]

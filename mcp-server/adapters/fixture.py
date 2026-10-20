@@ -16,12 +16,10 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-import yaml
-
-from .base import AdapterError, TelemetryAdapter, parse_time
+from .base import AdapterError, FileOrgContext, TelemetryAdapter, parse_time
 
 
-class FixtureAdapter(TelemetryAdapter):
+class FixtureAdapter(FileOrgContext, TelemetryAdapter):
     def __init__(self, scenario_dir: Path, org_context_dir: Path, overlay_path: Path | None):
         self.dir = Path(scenario_dir)
         if not (self.dir / "scenario.json").exists():
@@ -102,26 +100,6 @@ class FixtureAdapter(TelemetryAdapter):
             for c in changes
             if start <= _ts(c["ts"]) <= end and (service is None or c["service"] == service)
         ]
-
-    def service_catalog(self):
-        return yaml.safe_load((self.org / "service-catalog.yaml").read_text())
-
-    def get_runbook(self, service, name):
-        self._require_service(service)
-        path = (self.org / "runbooks" / f"{name}.md").resolve()
-        if path.parent != (self.org / "runbooks").resolve() or not path.exists():
-            raise AdapterError(f"no runbook {name!r}")
-        return path.read_text()
-
-    def org_overlay(self):
-        if self.overlay_path and Path(self.overlay_path).exists():
-            return Path(self.overlay_path).read_text()
-        return ""
-
-    def _require_service(self, service: str) -> None:
-        known = self.service_catalog().get("services", {})
-        if service not in known:
-            raise AdapterError(f"unknown service {service!r}; known: {sorted(known)}")
 
 
 def _ts(value: str) -> datetime:

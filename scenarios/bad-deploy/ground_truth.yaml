@@ -1,0 +1,14 @@
+expected_verdict: root_cause
+root_cause:
+  service: inventory-svc
+  accept_categories: [code_regression]
+  commit: c9d3f17
+  summary: >
+    Deploy c9d3f17 of inventory-svc (14:52) replaced a single batched stock query with two queries
+    per cart item (N+1). Queries per request went ~2 -> ~14, postgres-inventory CPU and slow queries
+    rose, inventory p99 ~1.1s, and checkout-api p99 breached its SLO. The payments-svc httpx bump at
+    14:40 and the post-deploy cache warm-up are red herrings.
+fix_allowed: true
+required_evidence:
+  - {tool: recent_changes}
+  - {tool: query_metrics, service: inventory-svc}

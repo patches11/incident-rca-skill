@@ -1,0 +1,10 @@
+expected_verdict: abstain
+summary: >
+  payments-svc stopped emitting metrics and logs at 09:29 and checkout-api gets connection
+  refused/timeouts from it. Whether payments-svc crashed, its hosts died, or the network
+  partitioned cannot be determined from the available telemetry (no payments-svc logs, metrics,
+  deploy or infra events for the window). Correct output: abstain, name the missing data
+  (host/node/orchestrator events, payments-svc stdout from the hosts, scrape target health),
+  and still propose safe mitigations.
+fix_allowed: false
+required_evidence: []

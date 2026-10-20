@@ -11,6 +11,7 @@ audit logging happen in pipeline.py, not here, so a new adapter cannot forget th
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 
@@ -93,3 +94,34 @@ class TelemetryAdapter(ABC):
     @abstractmethod
     def org_overlay(self) -> str:
         """Org-specific quirks / known-benign patterns. May be empty."""
+
+
+class FileOrgContext:
+    """Service catalog, runbooks and overlay read from an org-context directory.
+    Shared by adapters; a real org might back this with Backstage instead."""
+
+    org: Path
+    overlay_path: Path | None
+
+    def service_catalog(self) -> dict:
+        import yaml
+
+        return yaml.safe_load((self.org / "service-catalog.yaml").read_text())
+
+    def get_runbook(self, service: str, name: str) -> str:
+        self._require_service(service)
+        runbooks = (self.org / "runbooks").resolve()
+        path = (runbooks / f"{name}.md").resolve()
+        if path.parent != runbooks or not path.exists():
+            raise AdapterError(f"no runbook {name!r}")
+        return path.read_text()
+
+    def org_overlay(self) -> str:
+        if self.overlay_path and Path(self.overlay_path).exists():
+            return Path(self.overlay_path).read_text()
+        return ""
+
+    def _require_service(self, service: str) -> None:
+        known = self.service_catalog().get("services", {})
+        if service not in known:
+            raise AdapterError(f"unknown service {service!r}; known: {sorted(known)}")

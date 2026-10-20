@@ -13,7 +13,7 @@ services:
       availability: "99.9% of POST /checkout return non-5xx (30d)"
       latency: "99% of POST /checkout < 800ms"
     runbooks: [checkout-latency, general-oncall]
-    metrics: [request_rate, error_rate, latency_p50_ms, latency_p99_ms, cpu_util, memory_rss_mb]
+    metrics: [request_rate, error_rate, latency_p50_ms, latency_p99_ms, cpu_util, memory_rss_mb, memory_limit_mb, container_restarts]
   payments-svc:
     team: payments
     owner: "@payments-oncall"
@@ -25,7 +25,7 @@ services:
       availability: "99.95% of /charge non-5xx (30d)"
       latency: "99% of /charge < 500ms"
     runbooks: [payments-db-pool, general-oncall]
-    metrics: [request_rate, error_rate, latency_p50_ms, latency_p99_ms, cpu_util, memory_rss_mb, db_pool_in_use, db_pool_max, db_pool_wait_ms, upstream_latency_p99_ms, upstream_error_rate]
+    metrics: [request_rate, error_rate, latency_p50_ms, latency_p99_ms, cpu_util, memory_rss_mb, memory_limit_mb, container_restarts, db_pool_in_use, db_pool_max, db_pool_wait_ms, upstream_latency_p99_ms, upstream_error_rate]
   inventory-svc:
     team: catalog
     owner: "@catalog-oncall"
@@ -36,7 +36,7 @@ services:
     slos:
       latency: "99% of /reserve < 300ms"
     runbooks: [general-oncall]
-    metrics: [request_rate, error_rate, latency_p50_ms, latency_p99_ms, cpu_util, memory_rss_mb, db_pool_in_use, db_pool_max, db_pool_wait_ms, db_queries_per_request, cache_hit_ratio]
+    metrics: [request_rate, error_rate, latency_p50_ms, latency_p99_ms, cpu_util, memory_rss_mb, memory_limit_mb, container_restarts, db_pool_in_use, db_pool_max, db_pool_wait_ms, db_queries_per_request, cache_hit_ratio]
   notification-worker:
     team: growth
     owner: "@growth-oncall"
@@ -45,7 +45,7 @@ services:
     description: Async order-confirmation emails off a queue. Not in the checkout request path.
     depends_on: [email-provider]
     runbooks: [general-oncall]
-    metrics: [jobs_processed_rate, error_rate, queue_depth, cpu_util, memory_rss_mb]
+    metrics: [jobs_processed_rate, error_rate, queue_depth, cpu_util, memory_rss_mb, memory_limit_mb, container_restarts]
   postgres-payments:
     team: platform
     owner: "@platform-oncall"

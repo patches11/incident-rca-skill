@@ -1,0 +1,12 @@
+--- a/sandbox/services/payments_svc/app.py
++++ b/sandbox/services/payments_svc/app.py
+@@ -95,6 +95,9 @@
+             raise HTTPException(status_code=402, detail=result["code"])
+         _acquire(session)
+         session.execute(insert(payments).values(user_id=req.user_id, amount_cents=req.amount_cents))
++        # FRAUD-231: score every successful charge and store the score with the payment
++        score = gateway.risk_score(req.user_id, req.amount_cents)
++        session.execute(payments.update().where(payments.c.user_id == req.user_id).values(risk_score=score))
+         session.commit()
+         return {"status": "charged"}
+     except HTTPException:

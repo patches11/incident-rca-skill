@@ -1,0 +1,13 @@
+expected_verdict: root_cause
+root_cause:
+  service: card-gateway
+  accept_categories: [dependency_failure]
+  summary: >
+    The external card-gateway began timing out / returning 503 at 10:01. payments-svc upstream p99
+    went ~180ms -> ~2.5s and upstream errors ~11%, so /charge failed and checkout-api returned 5xx.
+    The loud notification-worker SMTP 421 errors started two hours earlier, are off the checkout
+    path, and the notification-worker deploy at 09:50 is unrelated.
+fix_allowed: false
+required_evidence:
+  - {tool: search_logs, service: payments-svc}
+  - {tool: query_metrics, service: payments-svc}

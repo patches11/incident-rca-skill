@@ -109,19 +109,23 @@ Category (pick the closest): `code_regression`, `config_change`, `certificate_or
 `dependency_failure`, `resource_exhaustion`, `capacity_or_traffic`, `infrastructure`,
 `data_issue`, `unknown`.
 
-### 6. Verify
-Draft the report's YAML summary (format in the template), then call `verify_claims` with it.
-- Every `observation` must cite query_ids **and** quote the concrete values (numbers,
-  messages, commit SHAs, timestamps) that appear in those results.
+### 6. Write the report, then verify the file
+Write the report to `.rca/incident-report.md` using `templates/incident-report.md` (in this
+skill's directory). You may call `verify_claims` on a draft claims list while working, but
+**what counts is the file**: after writing it, call `verify_report`.
+- Every `observation` must cite query_ids **and** list the concrete `values` (numbers,
+  messages, commit SHAs, timestamps) that appear in those results — in the report itself,
+  using the block-style YAML from the template. Don't shorten or reformat claims when
+  writing the report; claims without `values` fail.
 - Every `inference` must list `based_on` observation ids.
-- For each FAIL: fix the claim to match the data, re-query if genuinely needed, or delete it.
-  If a claim your conclusion depends on can't be verified, lower confidence or abstain.
-- Re-run `verify_claims` until all remaining claims PASS (max 3 rounds). Only verified claims
-  go in the report.
+- For each FAIL: fix the claim in the file to match the data, re-query if genuinely needed,
+  or delete it. If a claim your conclusion depends on can't be verified, lower confidence or
+  abstain.
+- Re-run `verify_report` after every edit until all claims PASS (max 3 rounds), and paste the
+  final output into the report's Verification section.
 
 ### 7. Hand off
-Write the report to `.rca/incident-report.md` using `templates/incident-report.md` (in this skill's directory).
-Include:
+The report must include:
 - **Mitigation proposals** (text only, for a human): the specific action, the evidence for it,
   its risk, and how to confirm it worked (which metric should recover).
 - **Code fix** — only if ALL of: verdict `root_cause`, confidence `high`, category

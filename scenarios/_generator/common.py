@@ -187,6 +187,10 @@ def baseline(sc: Scenario) -> None:
     sc.series("notification-worker", "cpu_util", lambda t: 0.08 * n(0.15))
     sc.series("notification-worker", "memory_rss_mb", lambda t: 180 * n(0.02))
 
+    for svc, limit in (("payments-svc", 768), ("inventory-svc", 1024), ("notification-worker", 512)):
+        sc.series(svc, "memory_limit_mb", lambda t, l=limit: l)
+        sc.series(svc, "container_restarts", lambda t: 0)
+
     # datastores
     for db, base in (("postgres-payments", 0.15), ("postgres-inventory", 0.2)):
         sc.series(db, "max_connections", lambda t: 200)
@@ -264,6 +268,8 @@ def derive_checkout(sc: Scenario, timeout_ms: float = 2000) -> None:
     sc.series("checkout-api", "error_rate", err)
     sc.series("checkout-api", "cpu_util", lambda t: 0.12 + 0.15 * sc.traffic(t) * n(0.08))
     sc.series("checkout-api", "memory_rss_mb", lambda t: 260 * n(0.01))
+    sc.series("checkout-api", "memory_limit_mb", lambda t: 512)
+    sc.series("checkout-api", "container_restarts", lambda t: 0)
 
 
 def checkout_traces(sc: Scenario, every_s: float = 120, extra=None) -> None:

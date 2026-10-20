@@ -1,0 +1,12 @@
+# Logical metric name -> PromQL. `$service` is substituted. Only metrics the sandbox exports.
+request_rate: sum(rate(http_requests_total{service="$service"}[1m]))
+error_rate: (sum(rate(http_requests_total{service="$service",status=~"5.."}[1m])) or vector(0)) / sum(rate(http_requests_total{service="$service"}[1m]))
+latency_p50_ms: 1000 * histogram_quantile(0.5, sum by (le) (rate(http_request_duration_seconds_bucket{service="$service"}[1m])))
+latency_p99_ms: 1000 * histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{service="$service"}[1m])))
+cpu_util: rate(process_cpu_seconds_total{service="$service"}[1m])
+memory_rss_mb: process_resident_memory_bytes{service="$service"} / 1048576
+db_pool_in_use: max(db_pool_checked_out{service="$service"})
+db_pool_max: max(db_pool_size{service="$service"})
+db_pool_wait_ms: 1000 * histogram_quantile(0.99, sum by (le) (rate(db_pool_acquire_seconds_bucket{service="$service"}[1m])))
+upstream_latency_p99_ms: 1000 * histogram_quantile(0.99, sum by (le) (rate(upstream_request_duration_seconds_bucket{service="$service"}[1m])))
+upstream_error_rate: (sum(rate(upstream_request_duration_seconds_count{service="$service",outcome!="ok"}[1m])) or vector(0)) / sum(rate(upstream_request_duration_seconds_count{service="$service"}[1m]))

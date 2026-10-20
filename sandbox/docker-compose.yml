@@ -1,0 +1,49 @@
+# Live sandbox: 3 tiny services + fake vendor gateway + Postgres + Prometheus + load.
+# Logs land in sandbox/data/logs/<service>.jsonl; change events in sandbox/data/changes.jsonl.
+name: acme-sandbox
+x-svc: &svc
+  build: &build {context: ./services, dockerfile: Dockerfile}
+  volumes: ["./data/logs:/var/log/acme"]
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: {POSTGRES_USER: acme, POSTGRES_PASSWORD: acme, POSTGRES_DB: payments}
+    command: ["postgres", "-c", "max_connections=200"]
+    volumes: ["./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro"]
+    healthcheck: {test: ["CMD", "pg_isready", "-U", "acme"], interval: 2s, retries: 30}
+  card-gateway:
+    <<: *svc
+    build: {<<: *build, args: {SERVICE_DIR: card_gateway}}
+    environment: {SERVICE_NAME: card-gateway}
+  payments-svc:
+    <<: *svc
+    build: {<<: *build, args: {SERVICE_DIR: payments_svc}}
+    environment:
+      SERVICE_NAME: payments-svc
+      DB_POOL_SIZE: "10"
+      GIT_COMMIT: ${PAYMENTS_COMMIT:-baseline}
+    command: ["sh", "-c", "uvicorn svc.app:app --host 0.0.0.0 --port 8080 --workers 1 --no-access-log --limit-concurrency 200"]
+    depends_on: {postgres: {condition: service_healthy}}
+  inventory-svc:
+    <<: *svc
+    build: {<<: *build, args: {SERVICE_DIR: inventory_svc}}
+    environment: {SERVICE_NAME: inventory-svc, DATABASE_URL: "postgresql+psycopg://acme:acme@postgres:5432/inventory"}
+    depends_on: {postgres: {condition: service_healthy}}
+  checkout-api:
+    <<: *svc
+    build: {<<: *build, args: {SERVICE_DIR: checkout_api}}
+    environment: {SERVICE_NAME: checkout-api}
+    ports: ["18080:8080"]
+    depends_on: [payments-svc, inventory-svc]
+  loadgen:
+    build: {<<: *build, args: {SERVICE_DIR: loadgen}}
+    command: ["python", "/app/svc/loadgen.py"]
+    environment: {RPS: "12"}
+    restart: unless-stopped
+    depends_on: [checkout-api]
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes: ["./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["19090:9090"]
