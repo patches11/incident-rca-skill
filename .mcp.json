@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "incident-telemetry": {
+      "command": "uv",
+      "args": ["run", "--quiet", "--project", ".", "python", "mcp-server/server.py"],
+      "env": {
+        "RCA_ADAPTER": "${RCA_ADAPTER:-fixture}",
+        "RCA_SCENARIO_DIR": "${RCA_SCENARIO_DIR:-scenarios/pool-exhaustion}",
+        "RCA_AUDIT_LOG": "${RCA_AUDIT_LOG:-.rca/audit.jsonl}"
+      }
+    }
+  }
+}

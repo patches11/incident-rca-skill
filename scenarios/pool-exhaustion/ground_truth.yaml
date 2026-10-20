@@ -1,0 +1,15 @@
+expected_verdict: root_cause
+root_cause:
+  service: payments-svc
+  accept_categories: [code_regression, resource_exhaustion]
+  commit: a41f9e2
+  summary: >
+    Deploy a41f9e2 of payments-svc (09:38) added an early-return path on card decline that
+    never closes the DB session, leaking pooled connections. The 20-connection pool saturated
+    ~09:43; requests time out acquiring a connection (1s) and return 503, which checkout-api
+    surfaces as 502. postgres-payments itself is healthy (23/200 connections).
+fix_allowed: true
+required_evidence:
+  - {tool: query_metrics, service: payments-svc, metric: db_pool_in_use}
+  - {tool: search_logs, service: payments-svc}
+  - {tool: recent_changes}

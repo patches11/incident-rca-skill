@@ -1,0 +1,83 @@
+# Service catalog for "Acme Shop" (fictional org used by fixtures and the sandbox).
+# In a real org this is generated from Backstage / OpsLevel / a services repo.
+org: acme-shop
+services:
+  checkout-api:
+    team: storefront
+    owner: "@storefront-oncall"
+    tier: 1
+    repo: sandbox/services/checkout_api
+    description: Public checkout endpoint. Validates cart, reserves stock, charges card.
+    depends_on: [payments-svc, inventory-svc]
+    slos:
+      availability: "99.9% of POST /checkout return non-5xx (30d)"
+      latency: "99% of POST /checkout < 800ms"
+    runbooks: [checkout-latency, general-oncall]
+    metrics: [request_rate, error_rate, latency_p50_ms, latency_p99_ms, cpu_util, memory_rss_mb]
+  payments-svc:
+    team: payments
+    owner: "@payments-oncall"
+    tier: 1
+    repo: sandbox/services/payments_svc
+    description: Charges cards via card-gateway; records payments in postgres-payments.
+    depends_on: [postgres-payments, card-gateway]
+    slos:
+      availability: "99.95% of /charge non-5xx (30d)"
+      latency: "99% of /charge < 500ms"
+    runbooks: [payments-db-pool, general-oncall]
+    metrics: [request_rate, error_rate, latency_p50_ms, latency_p99_ms, cpu_util, memory_rss_mb, db_pool_in_use, db_pool_max, db_pool_wait_ms, upstream_latency_p99_ms, upstream_error_rate]
+  inventory-svc:
+    team: catalog
+    owner: "@catalog-oncall"
+    tier: 2
+    repo: sandbox/services/inventory_svc
+    description: Stock levels and reservations. Read-heavy; caches in redis.
+    depends_on: [postgres-inventory, redis-cache]
+    slos:
+      latency: "99% of /reserve < 300ms"
+    runbooks: [general-oncall]
+    metrics: [request_rate, error_rate, latency_p50_ms, latency_p99_ms, cpu_util, memory_rss_mb, db_pool_in_use, db_pool_max, db_pool_wait_ms, db_queries_per_request, cache_hit_ratio]
+  notification-worker:
+    team: growth
+    owner: "@growth-oncall"
+    tier: 3
+    repo: services/notification-worker
+    description: Async order-confirmation emails off a queue. Not in the checkout request path.
+    depends_on: [email-provider]
+    runbooks: [general-oncall]
+    metrics: [jobs_processed_rate, error_rate, queue_depth, cpu_util, memory_rss_mb]
+  postgres-payments:
+    team: platform
+    owner: "@platform-oncall"
+    tier: 1
+    kind: datastore
+    depends_on: []
+    metrics: [active_connections, max_connections, cpu_util, slow_queries_rate, lock_wait_ms]
+  postgres-inventory:
+    team: platform
+    owner: "@platform-oncall"
+    tier: 1
+    kind: datastore
+    depends_on: []
+    metrics: [active_connections, max_connections, cpu_util, slow_queries_rate, lock_wait_ms]
+  redis-cache:
+    team: platform
+    owner: "@platform-oncall"
+    tier: 2
+    kind: datastore
+    depends_on: []
+    metrics: [memory_used_mb, evictions_rate, hit_ratio, cpu_util]
+  card-gateway:
+    team: external
+    owner: "vendor (status page: status.cardgateway.example)"
+    tier: 1
+    kind: external
+    depends_on: []
+    metrics: []
+  email-provider:
+    team: external
+    owner: "vendor"
+    tier: 3
+    kind: external
+    depends_on: []
+    metrics: []

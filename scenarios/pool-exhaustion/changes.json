@@ -1,0 +1,40 @@
+[
+  {
+    "ts": "2026-10-14T02:23:00Z",
+    "type": "deploy",
+    "service": "notification-worker",
+    "id": "nw-2214",
+    "author": "ana.lopez",
+    "summary": "Update order-confirmation email copy",
+    "commit": "3e1a9c0"
+  },
+  {
+    "ts": "2026-10-14T03:58:00Z",
+    "type": "config",
+    "service": "inventory-svc",
+    "id": "cfg-8812",
+    "author": "sam.kim",
+    "summary": "Raise LOG_SAMPLING_RATE 0.01 -> 0.02 for reserve endpoint",
+    "diff": "-LOG_SAMPLING_RATE=0.01\n+LOG_SAMPLING_RATE=0.02"
+  },
+  {
+    "ts": "2026-10-14T06:10:00Z",
+    "type": "deploy",
+    "service": "inventory-svc",
+    "id": "inv-1902",
+    "author": "sam.kim",
+    "summary": "Add OpenTelemetry attributes to reserve spans",
+    "commit": "77c02bd"
+  },
+  {
+    "ts": "2026-10-14T09:38:00Z",
+    "type": "deploy",
+    "service": "payments-svc",
+    "id": "pay-5531",
+    "author": "dev.patel",
+    "summary": "Record declined charge attempts for fraud scoring (FRAUD-231)",
+    "commit": "a41f9e2",
+    "version": "2026.10.14-1",
+    "diff": "--- a/sandbox/services/payments_svc/app.py\n+++ b/sandbox/services/payments_svc/app.py\n@@ def charge(req: ChargeRequest):\n     session = SessionLocal()\n     result = gateway.charge(req.card_token, req.amount_cents)\n     if result.declined:\n+        # FRAUD-231: record declined attempts so fraud scoring can see velocity\n+        session.execute(insert(declined_attempts).values(user_id=req.user_id, code=result.code))\n+        log.info(\"declined charge attempt recorded for fraud scoring\")\n         raise HTTPException(status_code=402, detail=result.code)\n     session.execute(insert(payments).values(user_id=req.user_id, amount_cents=req.amount_cents))\n     session.commit()\n     session.close()\n"
+  }
+]
