@@ -292,8 +292,8 @@ def write_table(results: list[dict], stamp: str, model: str | None) -> Path:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--scenario", action="append", help="repeatable; default all")
-    ap.add_argument("--runs", type=int, default=3)
-    ap.add_argument("--jobs", type=int, default=3)
+    ap.add_argument("--runs", type=int, default=1)
+    ap.add_argument("--jobs", type=int, default=1, help="parallel claude sessions; >1 burns usage limits fast")
     ap.add_argument("--model", default=None)
     ap.add_argument("--timeout", type=int, default=900)
     ap.add_argument("--show", action="store_true", help="print the report of each run")

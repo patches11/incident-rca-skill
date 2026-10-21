@@ -57,6 +57,13 @@ knowledge files:
 - **Change correlation:** `recent_changes` across *all* services from T0-6h to now. A change
   shortly before T0 is a suspect, not a verdict — it still needs a mechanism.
 - **Traffic:** did request rate or traffic mix change? Who is sending it?
+- **Level vs. accumulation:** for any saturating resource (memory, connections, disk, queue),
+  ask whether it tracks the *current* load (rises and falls with rate — capacity) or the
+  *cumulative* volume (keeps climbing at steady load, never comes back down, resets only on
+  restart — accumulation: a leak or unbounded growth). They have different fixes.
+- **Trigger vs. cause:** if a change in traffic or data is the trigger, ask what made that
+  traffic harmful. Look back up to 7 days in `recent_changes` (one query) for the change that
+  introduced the vulnerable behavior; "nothing changed in the last few hours" is not "nothing changed".
 
 Then consult knowledge for additional candidates and for things to discard:
 - `taxonomy/README.md` (in this skill's directory) — generic failure classes with signatures and the queries that
@@ -105,7 +112,8 @@ Pick one:
   logs), or ≥2 hypotheses fit equally. List each missing datum, why it matters, and how a
   human can get it (e.g. "node-level logs from the orders-svc hosts for 09:25–09:40").
 
-Category (pick the closest): `code_regression`, `config_change`, `certificate_or_credential`,
+Category — pick by **what must change to stop it recurring**, not by what triggered it (a
+leak exposed by new traffic is fixed in code, so it is not `capacity_or_traffic`). Pick the closest: `code_regression`, `config_change`, `certificate_or_credential`,
 `dependency_failure`, `resource_exhaustion`, `capacity_or_traffic`, `infrastructure`,
 `data_issue`, `unknown`.
 

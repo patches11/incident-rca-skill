@@ -1,5 +1,6 @@
 SCENARIO ?= pool-exhaustion
-RUNS ?= 3
+RUNS ?= 1
+JOBS ?= 1
 PY = uv run --quiet python
 
 .PHONY: help fixtures test demo eval sandbox-up sandbox-down break unbreak live
@@ -8,7 +9,7 @@ help:
 	@echo "make fixtures                  regenerate all scenario fixtures (seeded)"
 	@echo "make test                      unit tests (server, redaction, budget, verifier)"
 	@echo "make demo SCENARIO=<name>      run the skill headlessly against one recorded scenario"
-	@echo "make eval [RUNS=3]             run every scenario RUNS times and score"
+	@echo "make eval [RUNS=1] [JOBS=1]    run every scenario RUNS times and score (each run is a real claude -p session; mind usage limits)"
 	@echo "make sandbox-up / sandbox-down live docker sandbox"
 	@echo "make break SCENARIO=<name>     inject a fault into the live sandbox"
 	@echo "make unbreak                   revert the injected fault"
@@ -24,7 +25,7 @@ demo:
 	$(PY) eval/run_eval.py --scenario $(SCENARIO) --runs 1 --show
 
 eval:
-	$(PY) eval/run_eval.py --runs $(RUNS)
+	$(PY) eval/run_eval.py --runs $(RUNS) --jobs $(JOBS)
 
 sandbox-up:
 	mkdir -p sandbox/data/logs
