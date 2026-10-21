@@ -19,6 +19,7 @@ services:
     owner: "@payments-oncall"
     tier: 1
     repo: sandbox/services/payments_svc
+    test_command: uv run --with-requirements sandbox/services/requirements-dev.txt pytest -q sandbox/services/payments_svc/tests
     description: Charges cards via card-gateway; records payments in postgres-payments.
     depends_on: [postgres-payments, card-gateway]
     slos:

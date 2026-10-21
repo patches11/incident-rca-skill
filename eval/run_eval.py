@@ -62,7 +62,9 @@ def make_workspace(scenario: str, overlay: str, run_id: str) -> Path:
     ws = WORK_ROOT / run_id
     ws.mkdir(parents=True)
     shutil.copytree(REPO / "skill", ws / ".claude" / "skills" / "incident-rca")
-    overlay_path = REPO / "org-context" / "overlay.md"
+    # Snapshot org context so edits in the repo during an eval can't change a run's inputs.
+    shutil.copytree(REPO / "org-context", ws / ".org-context")
+    overlay_path = ws / ".org-context" / "overlay.md"
     if overlay == "empty":
         overlay_path = ws / ".rca-empty-overlay.md"
         overlay_path.write_text("")
@@ -75,7 +77,7 @@ def make_workspace(scenario: str, overlay: str, run_id: str) -> Path:
                 "env": {
                     "RCA_ADAPTER": "fixture",
                     "RCA_SCENARIO_DIR": str(SCENARIOS / scenario),
-                    "RCA_ORG_CONTEXT": str(REPO / "org-context"),
+                    "RCA_ORG_CONTEXT": str(ws / ".org-context"),
                     "RCA_OVERLAY_PATH": str(overlay_path),
                     "RCA_AUDIT_LOG": str(ws / ".rca" / "audit.jsonl"),
                 },
@@ -125,7 +127,14 @@ def run_claude(ws: Path, prompt: str, model: str | None, timeout: int) -> dict:
         for c in e.get("message", {}).get("content", [])
         if c.get("type") == "tool_use"
     ]
+    text = final.get("result", "") or ""
+    # Usage/rate limits, auth problems or a crashed CLI say nothing about the skill:
+    # report them as ERROR and keep them out of the pass rate.
+    infra_error = timed_out is False and (
+        not final or final.get("is_error") or any(k in text.lower() for k in ("session limit", "rate limit", "usage limit", "api error"))
+    )
     return {
+        "infra_error": bool(infra_error),
         "wall_s": round(wall, 1),
         "timed_out": timed_out,
         "cost_usd": final.get("total_cost_usd"),
@@ -143,6 +152,7 @@ def _evidence_matches(entry: dict, spec: dict) -> bool:
 
 
 def score(scenario: str, ws: Path, overlay_path: Path) -> dict:
+    """Must run before the workspace is deleted (uses its org-context snapshot)."""
     gt = yaml.safe_load((SCENARIOS / scenario / "ground_truth.yaml").read_text())
     report_path = ws / ".rca" / "incident-report.md"
     audit = load_audit(ws / ".rca" / "audit.jsonl")
@@ -177,7 +187,7 @@ def score(scenario: str, ws: Path, overlay_path: Path) -> dict:
             s["failures"].append(f"commit {rc.get('commit')!r} != {exp['commit']!r}")
 
     # Independent re-verification: don't trust the model's own verify_claims output.
-    adapter = FixtureAdapter(SCENARIOS / scenario, REPO / "org-context", overlay_path)
+    adapter = FixtureAdapter(SCENARIOS / scenario, ws / ".org-context", overlay_path)
     inv = Investigation(adapter, None)
     claims = summary.get("claims") or []
     verdicts = verify_claims(claims, audit, lambda tool, a: inv.run(tool, a, record=False))
@@ -216,7 +226,7 @@ def one_run(scenario: str, overlay: str, i: int, stamp: str, model: str | None, 
         + page_text(scenario)
     )
     r = run_claude(ws, prompt, model, timeout)
-    overlay_path = ws / ".rca-empty-overlay.md" if overlay == "empty" else REPO / "org-context" / "overlay.md"
+    overlay_path = ws / ".rca-empty-overlay.md" if overlay == "empty" else ws / ".org-context" / "overlay.md"
     s = score(scenario, ws, overlay_path)
     if not r["skill_used"]:
         s["failures"].append("skill was not invoked")
@@ -230,13 +240,15 @@ def one_run(scenario: str, overlay: str, i: int, stamp: str, model: str | None, 
     res.pop("final_text")
     (keep / "score.json").write_text(json.dumps(res, indent=2))
     shutil.rmtree(ws)  # finished reports must not be readable by later runs
-    status = "PASS" if res["pass"] else "FAIL"
+    status = "ERROR" if res["infra_error"] else "PASS" if res["pass"] else "FAIL"
     print(f"[{status}] {scenario} ({overlay} overlay) run {i}: {res['queries']} queries, {res['wall_s']}s, "
           f"${res['cost_usd'] or 0:.2f}" + ("" if res["pass"] else f" — {res['failures']}"), flush=True)
     return res
 
 
 def write_table(results: list[dict], stamp: str, model: str | None) -> Path:
+    errored = [r for r in results if r.get("infra_error")]
+    results = [r for r in results if not r.get("infra_error")]
     groups: dict[tuple, list[dict]] = {}
     for r in results:
         groups.setdefault((r["scenario"], r["overlay"]), []).append(r)
@@ -261,7 +273,11 @@ def write_table(results: list[dict], stamp: str, model: str | None) -> Path:
             f"{mean('wall_s'):.0f} | {mean('cost_usd'):.2f} | {fails} |"
         )
     total = sum(r["pass"] for r in results)
-    lines += ["", f"**Overall: {total}/{len(results)} runs passed.**", ""]
+    lines += ["", f"**Overall: {total}/{len(results)} runs passed.**"]
+    if errored:
+        lines.append(f"{len(errored)} run(s) excluded for infrastructure errors (usage limit / CLI failure): "
+                     + ", ".join(f"{r['scenario']}#{r['run']}" for r in errored))
+    lines.append("")
     RESULTS.mkdir(parents=True, exist_ok=True)
     out = RESULTS / f"{stamp}.md"
     out.write_text("\n".join(lines))
@@ -298,9 +314,12 @@ def main() -> int:
             rp = REPO / r["workspace"] / "incident-report.md"
             print(f"\n{'=' * 80}\n{r['workspace']}\n{'=' * 80}")
             print(rp.read_text() if rp.exists() else "(no report)")
+    if all(r["infra_error"] for r in results):
+        print("every run hit an infrastructure error; not writing a results table")
+        return 2
     if not args.no_table and len(results) > 1:
         print(f"\nresults: {write_table(results, stamp, args.model).relative_to(REPO)}")
-    return 0 if all(r["pass"] for r in results) else 1
+    return 0 if all(r["pass"] or r["infra_error"] for r in results) else 1
 
 
 if __name__ == "__main__":

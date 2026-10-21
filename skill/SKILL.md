@@ -132,8 +132,10 @@ The report must include:
   `code_regression`, and the service's repo (catalog `repo` path) is present in this
   workspace. Then:
   1. create a branch `rca/<short-slug>`;
-  2. write a regression test that reproduces the bug and **run it to confirm it fails**;
-  3. make the minimal fix; run the test (and the service's existing tests) to confirm they pass;
+  2. write a regression test that reproduces the bug and **run it (catalog `test_command`)
+     to confirm it fails**;
+  3. make the minimal fix; run the test and the service's existing tests (catalog
+     `test_command`) to confirm they pass;
   4. do not push, merge or deploy. Put the diff and test output in the report.
   If any condition is false, describe the fix in prose and set `fix_proposed: false`. Never
   propose code changes for config, certificate, dependency or capacity causes — the fix
