@@ -158,7 +158,55 @@ applicable); every claim in the report passes independent re-verification; requi
 among the verified claims' citations; no code fix where inappropriate; no planted PII/secret in
 the report.
 
-<!-- EVAL_TABLE -->
+### Results so far
+
+Every valid run so far, grouped by skill version. Runs that hit infrastructure errors (usage limits) are excluded. Each run is one headless `claude -p` session (default model, fixture adapter, isolated workspace). Sample sizes are small: read pass counts, not percentages.
+
+| Version | Change |
+|---|---|
+| v0 | initial skill (verifies drafts via `verify_claims`) |
+| v1 | + `verify_report` (verify the written file), pinned time windows |
+| v2 | + level-vs-accumulation / trigger-vs-cause rules |
+
+| Scenario | Overlay | Version | Passed | Queries (mean) | Wall s (mean) | Cost $ (mean) | Failure |
+|---|---|---|---|---|---|---|---|
+| bad-deploy | default | v0 | **1/1** | 13.0 | 110 | 0.85 | — |
+| bad-deploy | default | v1 | **3/3** | 12.7 | 96 | 0.75 | — |
+| cert-expiry | default | v0 | **1/1** | 13.0 | 141 | 0.80 | — |
+| cert-expiry | default | v1 | **3/3** | 9.0 | 86 | 0.63 | — |
+| insufficient-data | default | v0 | **1/1** | 17.0 | 103 | 0.82 | — |
+| insufficient-data | default | v1 | **3/3** | 15.7 | 122 | 0.79 | — |
+| novel-failure | default | v0 | **1/1** | 24.0 | 173 | 1.31 | — |
+| novel-failure | default | v1 | **3/3** | 19.3 | 132 | 1.06 | — |
+| novel-failure | empty | v0 | **0/1** | 22.0 | 151 | 1.07 | 15/15 claims failed verification; required evidence not cited |
+| novel-failure | empty | v1 | **1/2** | 19.5 | 132 | 1.07 | category 'capacity_or_traffic' not in ['resource_exhaustion', 'code_regression'] |
+| novel-failure | empty | v2 | **1/1** | 16.0 | 139 | 0.92 | — |
+| pool-exhaustion | default | v0 | **2/2** | 15.5 | 105 | 0.76 | — |
+| pool-exhaustion | default | v2 | **1/1** | 15.0 | 106 | 0.80 | — |
+| red-herring | default | v0 | **1/1** | 15.0 | 108 | 0.81 | — |
+| red-herring | default | v2 | **1/1** | 19.0 | 107 | 0.88 | — |
+
+- **v0:** 7/8 runs passed
+- **v1:** 13/14 runs passed
+- **v2:** 3/3 runs passed
+
+**Two real failures the evals found, and what changed** (details in [WHAT_DIDNT_WORK.md](WHAT_DIDNT_WORK.md)):
+
+1. **v0 → v1: the verified draft wasn't the shipped report.** The skill verified 15/15 claims, then
+   compressed them while writing the report and dropped every quoted value. The eval re-verifies the
+   *file* independently and failed it. Fix: a `verify_report` tool that verifies the written report,
+   and a workflow that writes first, then verifies.
+2. **v1 → v2: "traffic surge" instead of "leak".** With the overlay empty, the skill identified the OOM
+   mechanism correctly but blamed partner traffic. It never asked whether memory tracked current load or
+   cumulative volume, and it only looked 6h back for changes. Fix: generic level-vs-accumulation and
+   trigger-vs-cause rules, plus categorising by what must change to prevent recurrence. On the retry it
+   found the 3-day-old commit. That is n=1, and the rule sits close to the held-out class; see the caveat
+   in WHAT_DIDNT_WORK #11.
+
+Sample sizes are small (1–3 runs per cell) because each run is a full Claude Code session and runs eat
+usage limits. `make eval` defaults to 1 run, 1 job. `uv run python eval/summarize.py` rebuilds this table
+from `eval/runs/`. Per-run tables are in `eval/results/`.
+
 
 ## Worked example
 
@@ -178,7 +226,7 @@ real Prometheus, a real bug injected with `make break`).
 - **Bonus:** it found a second bug in my injected change that I hadn't intended (`UPDATE … WHERE user_id`
   overwrites every past payment's risk score for that user) and fixed it with its own test.
 
-Fixture-based examples for every scenario are in [examples/fixtures/](examples/fixtures/).
+Fixture-based examples for every scenario (input → transcript → report → score) are indexed in [examples/README.md](examples/README.md).
 
 ## Limitations and failure modes
 

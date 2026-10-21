@@ -294,6 +294,7 @@ def main() -> int:
     ap.add_argument("--scenario", action="append", help="repeatable; default all")
     ap.add_argument("--runs", type=int, default=1)
     ap.add_argument("--jobs", type=int, default=1, help="parallel claude sessions; >1 burns usage limits fast")
+    ap.add_argument("--overlay", choices=["default", "empty"], help="only run this overlay variant")
     ap.add_argument("--model", default=None)
     ap.add_argument("--timeout", type=int, default=900)
     ap.add_argument("--show", action="store_true", help="print the report of each run")
@@ -305,7 +306,7 @@ def main() -> int:
     jobs = []
     for sc in scenarios:
         gt = yaml.safe_load((SCENARIOS / sc / "ground_truth.yaml").read_text())
-        overlays = gt.get("eval_overlays", ["default"])
+        overlays = [o for o in gt.get("eval_overlays", ["default"]) if not args.overlay or o == args.overlay]
         for ov in overlays:
             for i in range(1, args.runs + 1):
                 jobs.append((sc, ov, i))
