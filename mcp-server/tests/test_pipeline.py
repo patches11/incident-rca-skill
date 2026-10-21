@@ -49,3 +49,9 @@ def test_log_query_language(inv):
 
 def test_unknown_service_is_an_error_not_empty_data(inv):
     assert "unknown service" in inv.run("list_metrics", {"service": "paymnts"})["error"]
+
+
+def test_relative_windows_are_pinned_in_audit(inv):
+    inv.run("query_metrics", {"service": "payments-svc", "metric": "error_rate", "start": "now-1h", "end": "now"})
+    entry = json.loads(inv.audit_path.read_text().splitlines()[0])
+    assert entry["args"]["start"] == "2026-10-14T08:58:00Z" and entry["args"]["end"] == "2026-10-14T09:58:00Z"

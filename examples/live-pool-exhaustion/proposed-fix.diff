@@ -1,0 +1,58 @@
+diff --git a/sandbox/services/payments_svc/app.py b/sandbox/services/payments_svc/app.py
+index 863745e..31d783b 100644
+--- a/sandbox/services/payments_svc/app.py
++++ b/sandbox/services/payments_svc/app.py
+@@ -93,11 +93,12 @@ def charge(req: ChargeRequest):
+         result = gateway.charge(req.card_token, req.amount_cents)
+         if result["declined"]:
+             raise HTTPException(status_code=402, detail=result["code"])
+-        _acquire(session)
+-        session.execute(insert(payments).values(user_id=req.user_id, amount_cents=req.amount_cents))
+-        # FRAUD-231: score every successful charge and store the score with the payment
++        # FRAUD-231: score every successful charge and store the score with the payment.
++        # Call the gateway before taking a pooled connection so a slow risk API can't pin the pool.
+         score = gateway.risk_score(req.user_id, req.amount_cents)
+-        session.execute(payments.update().where(payments.c.user_id == req.user_id).values(risk_score=score))
++        _acquire(session)
++        session.execute(insert(payments).values(user_id=req.user_id, amount_cents=req.amount_cents,
++                                                risk_score=score))
+         session.commit()
+         return {"status": "charged"}
+     except HTTPException:
+diff --git a/sandbox/services/payments_svc/tests/test_charge.py b/sandbox/services/payments_svc/tests/test_charge.py
+index 88f100f..87ee1bf 100644
+--- a/sandbox/services/payments_svc/tests/test_charge.py
++++ b/sandbox/services/payments_svc/tests/test_charge.py
+@@ -17,3 +17,32 @@ def test_declined_charge_returns_402_and_releases_connection(app_module, client,
+         r = client.post("/charge", json={"user_id": "u1", "card_token": "tok_decline_x", "amount_cents": 500})
+         assert r.status_code == 402
+     assert app_module.engine.pool.checkedout() == 0
++
++
++def test_risk_score_call_does_not_hold_a_db_connection(app_module, client, monkeypatch):
++    # RCA: ed3be52 called the slow card-gateway risk API while holding a pooled connection,
++    # pinning the pool at its limit and timing out every other /charge.
++    _fake_gateway(app_module, monkeypatch)
++    held = []
++
++    def risk_score(user, amount):
++        held.append(app_module.engine.pool.checkedout())
++        return 10
++
++    monkeypatch.setattr(app_module.gateway, "risk_score", risk_score)
++    r = client.post("/charge", json={"user_id": "u2", "card_token": "tok_visa", "amount_cents": 500})
++    assert r.status_code == 200
++    assert held == [0]
++
++
++def test_risk_score_is_stored_only_on_the_new_payment(app_module, client, monkeypatch):
++    from sqlalchemy import select
++
++    for score in (11, 22):
++        _fake_gateway(app_module, monkeypatch, score=score)
++        r = client.post("/charge", json={"user_id": "u3", "card_token": "tok_visa", "amount_cents": 500})
++        assert r.status_code == 200
++    p = app_module.payments
++    with app_module.engine.connect() as conn:
++        scores = conn.execute(select(p.c.risk_score).where(p.c.user_id == "u3").order_by(p.c.id)).scalars().all()
++    assert scores == [11, 22]

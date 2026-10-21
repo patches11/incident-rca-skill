@@ -60,6 +60,11 @@ class Investigation:
     CHARGED = {"query_metrics", "search_logs", "get_traces", "recent_changes"}
 
     def run(self, tool: str, args: dict[str, Any], record: bool = True) -> dict:
+        # Pin relative windows ("now-2h") to absolute times so the audit log - and any
+        # later re-verification - replays exactly the query the model saw.
+        now = self.adapter.now()
+        args = {k: iso(parse_time(v, now)) if k in ("start", "end") and isinstance(v, str) and v.startswith("now") else v
+                for k, v in args.items()}
         try:
             if tool in self.CHARGED and record:
                 self.budget.charge()

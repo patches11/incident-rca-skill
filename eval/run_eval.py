@@ -106,7 +106,8 @@ def run_claude(ws: Path, prompt: str, model: str | None, timeout: int) -> dict:
     t0 = time.time()
     env = {k: v for k, v in os.environ.items() if not k.startswith("RCA_")}
     try:
-        proc = subprocess.run(cmd, cwd=ws, capture_output=True, text=True, timeout=timeout, env=env)
+        proc = subprocess.run(cmd, cwd=ws, capture_output=True, text=True, timeout=timeout, env=env,
+                              stdin=subprocess.DEVNULL)
         out, err, timed_out = proc.stdout, proc.stderr, False
     except subprocess.TimeoutExpired as e:
         out, err, timed_out = (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or ""), "", True
@@ -130,8 +131,10 @@ def run_claude(ws: Path, prompt: str, model: str | None, timeout: int) -> dict:
     text = final.get("result", "") or ""
     # Usage/rate limits, auth problems or a crashed CLI say nothing about the skill:
     # report them as ERROR and keep them out of the pass rate.
+    # (Only short texts: a real report summary can legitimately mention "rate limit".)
     infra_error = timed_out is False and (
-        not final or final.get("is_error") or any(k in text.lower() for k in ("session limit", "rate limit", "usage limit", "api error"))
+        not final or final.get("is_error")
+        or (len(text) < 300 and any(k in text.lower() for k in ("session limit", "usage limit", "rate limit", "api error")))
     )
     return {
         "infra_error": bool(infra_error),
